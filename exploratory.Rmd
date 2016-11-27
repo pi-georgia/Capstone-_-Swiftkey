@@ -1,0 +1,90 @@
+---
+title: "Untitled"
+author: "Georgia P"
+date: "November 20, 2016"
+output: html_document
+---
+
+###Data Exploration
+Use doParallel and foreach packages (more on this topic here: https://cran.r-project.org/web/packages/doParallel/vignettes/gettingstartedParallel.pdf
+Avoid wasting time with dependencies. For that purpose I've created the load function.
+Use sampling when you are going to try different approaches. Or just work with the first "n" lines of the datasets. readLines() and sample() can be very useful to prevent you to realise about error 8 hours after you left the computer doing calculations.
+Keep in mind that there can be very accurate models that can't be implemented due to hardware limitations. You need to be aware that there is a permanent trade-off between efficiency and accuracy on this project. 
+Here you have a real life example of the trade-off I've described:
+https://www.techdirt.com/blog/innovation/articles/20120409/03412518422/why-netflix-never-implemented...
+
+```{r echo=FALSE}
+
+library(gdata)
+library(dplyr)
+#files to read
+file1="final/en_US/en_US.twitter.txt"
+file2="final/en_US/en_US.news.txt"
+file3="final/en_US/en_US.blogs.txt"
+
+file4="final/de_DE/de_DE.twitter.txt"
+file5="final/de_DE/de_DE.news.txt"
+file6="final/de_DE/de_DE.blogs.txt"
+
+file7="final/ru_RU/ru_RU.twitter.txt"
+file8="final/ru_RU/ru_RU.news.txt"
+file9="final/ru_RU/ru_RU.blogs.txt"
+
+thedata1 = read.table(file1, fill=TRUE, header=FALSE) 
+write.table(minid22,"en_US_news_freq.csv")
+
+#count frequency
+data_fr1=as.data.frame(table(unlist(thedata1))) 
+dat1=data_fr1
+#split in two tables for faster processing if two many columns (ie >50)
+the1=data_fr1[1:50,]
+d3=as.data.frame(table(unlist(the33)))
+d33=as.data.frame(table(unlist(the333)))
+
+m=rbind(d3,d33)
+
+#CLEAN-UP : replace numbers and spaces get the right density
+dat1$Var1=gsub("[[:punct:]]", "",dat1$Var1)
+dat1$Var1=gsub("[[:space:]]", "",dat1$Var1)
+dat1$Var1=gsub("[[:cntrl:]]", "",dat1$Var1)
+dat1$Var1=gsub("[[:digit:]]", "",dat1$Var1)
+
+#group by 
+dat11=dat1 %>% 
+    mutate_each(funs(tolower))
+  
+dat11=as.data.frame(dat11) 
+dat11$Freq= as.integer(dat11$Freq)
+
+dat11= dat11 %>% 
+  group_by(Var1) %>% 
+  summarise(Freq = sum(Freq))
+
+dat11=arrange(dat11, desc(Freq))
+
+#compression factor
+cf=length(dat4$Var1)/length(dat3$Var1)
+
+#distribution
+quantile(data_fr$Freq, c(.5, .50, .90)) 
+minid22=subset(dat22, dat22$Freq>11)
+
+#prepare for plotting
+d <- density(data_fr$Freq)
+plot(minid22$Freq[2:40])
+topfreq22=subset(min22,min22$Freq>500000 )
+midfreq22=subset(min22,min22$Freq<500000 )
+
+#rename columns
+th2f=rename.vars(th2f, c("V2","V3"), c("Var1","Freq"))
+
+
+words=big2[2:length(big2$Freq),]
+library(ggplot2)
+ggplot(usr_file, aes(x=factor(seniorship), y=y_review_count ))+ geom_boxplot()
+
+
+
+
+```
+

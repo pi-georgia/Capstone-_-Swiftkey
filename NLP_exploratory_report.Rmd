@@ -1,0 +1,296 @@
+---
+title: "Natural Language Processing-exploratory analysis"
+subtitle: "scope: English language, based on online media sources"
+author: "Georgia Psyllidou"
+date: "November 25, 2016"
+output: html_document
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+## Goals & Motivation
+Based on a sample of data from online media (blogs, news, twitter), this reports aims to highlight which are the most frequent word and word combinations in modern english.
+The **goal** is to build a tool that could efficiently predict the next word of a person who is typing text in real time.
+
+## Challenges
+Some of the challenges with natural language processing (NLP) are the below :
+
+* people do not write to perfectly match vocabularies
+* people make spelling mistakes and use capitalization & punctuation in a random fashion
+* people extend vocabularies with words/phrases borrowed from foreign languages or cultural influences (idioms + slang)
+
+Some of the computational challenges with NLP :
+
+* volume, variety, velocity of data produced surpass the real time computational capabilities of household devices (mobile phones, PCs, laptops)
+
+## Datasets
+The datasets leveraged for this excercise stem from 3 types of media ranging across the phasm of casual (twitter) to formal (news) language. 
+They can already be considered a **sample** and therefore no initial sampling will be used at the exploration phase in an attempt to understand the capabilities of a household device.
+
+```{r readstuff, eval=TRUE}
+library(gdata)
+library(dplyr)
+library(pryr)
+library(ggplot2)
+
+#files to read
+file1="final/en_US/en_US.twitter.txt"
+file2="final/en_US/en_US.news.txt"
+file3="final/en_US/en_US.blogs.txt"
+
+thedata1 = read.table(file1, fill=TRUE, header=FALSE) 
+thedata2 = read.table(file2, fill=TRUE, header=FALSE) 
+thedata3 = read.table(file3, fill=TRUE, header=FALSE) 
+```
+
+##### What are the dimensions of each table and the object size in the device memory ?
+```{r dimensions,echo=FALSE}
+ro1= nrow(thedata1) ; ro2=nrow(thedata2) ; ro3=nrow(thedata3)
+co1= ncol(thedata1) ; co2=ncol(thedata2) ; co3=ncol(thedata3)
+
+s1=object.size(thedata1) ; s2=object.size(thedata2); s3=object.size(thedata3)
+```
+
+The twitter object is `r s1` bytes, while the news object is `r s2` bytes,
+and the blog object is `r s3` bytes.
+
+* The twitter table has  `r ro1` rows and `r co1` columns, 
+* The news table has `r ro2` rows and `r co2` columns,
+* and the blog table  has `r ro3` rows and `r co3` columns
+
+all 3 sizes are significant and will need special handling to stay within the computational capabilities of a house-hold system.
+
+#### Data pre-processing
+
+The next step is to to **re-morph** data into a dataframe with one variable per row and the count of appearances in the data as its frequency.
+
+```{r morph1, eval=TRUE}
+dat1=as.data.frame(table(unlist(thedata1))) 
+```
+
+**!!** 
+*For news and blog sources, the number of columns  cannot be handled in a 8G RAM laptop. 
+Hence I need to split the original tables in two for faster processing (ie columns>60).*
+
+```{r morph23, eval=TRUE}
+th3=thedata3[,1:70] ; th2=thedata2[,1:40]
+th33=thedata3[,71:ncol(thedata3)] ; th22=thedata2[,41:ncol(thedata2)]
+d3=as.data.frame(table(unlist(th3))) ; d2=as.data.frame(table(unlist(th2)))
+d33=as.data.frame(table(unlist(th33))) ; d22=as.data.frame(table(unlist(th22)))
+
+#connect the two tables together
+dat2=rbind(d2,d22) ; dat3=rbind(d3,d33)
+```
+
+In terms of **clean up**, punctuation, capitalization and numerical characters are excluded to produce a more uniform dataset...
+
+```{r clean, eval=TRUE}
+#CLEAN-UP : replace numbers and spaces get the right density
+dat1$Var1=gsub("[[:punct:]]", "",dat1$Var1);dat3$Var1=gsub("[[:punct:]]", "",dat3$Var1) ; dat2$Var1=gsub("[[:punct:]]", "",dat2$Var1)
+dat1$Var1=gsub("[[:space:]]", "",dat1$Var1) ;dat2$Var1=gsub("[[:space:]]", "",dat2$Var1) ; dat3$Var1=gsub("[[:space:]]", "",dat3$Var1) 
+dat1$Var1=gsub("[[:cntrl:]]", "",dat1$Var1) ; dat2Var1=gsub("[[:cntrl:]]", "",dat2$Var1) ; dat3$Var1=gsub("[[:cntrl:]]", "",dat3$Var1) 
+dat1$Var1=gsub("[[:digit:]]", "",dat1$Var1) ; dat2$Var1=gsub("[[:digit:]]", "",dat2$Var1) ; dat3$Var1=gsub("[[:digit:]]", "",dat3$Var1)
+
+#change all words to lower case
+dat11=dat1 %>% mutate_each(funs(tolower))
+dat11=as.data.frame(dat11)  ; dat11$Freq= as.integer(dat11$Freq)
+
+dat22=dat2 %>% mutate_each(funs(tolower))
+dat22=as.data.frame(dat22)  ; dat22$Freq= as.integer(dat22$Freq)
+
+dat33=dat3 %>% mutate_each(funs(tolower))
+dat33=as.data.frame(dat33)  ; dat33$Freq= as.integer(dat33$Freq)
+
+#regroup by word and summarize their frequencies
+dat11= dat11 %>% group_by(Var1) %>% summarise(Freq = sum(Freq))
+dat22= dat22 %>% group_by(Var1) %>% summarise(Freq = sum(Freq))
+dat33= dat33 %>% group_by(Var1) %>% summarise(Freq = sum(Freq))
+#order by descending frequencies
+dat11=arrange(dat11, desc(Freq)) ; dat22=arrange(dat22, desc(Freq)) ; dat33=arrange(dat33, desc(Freq)) 
+
+dat11=dat11[2:nrow(dat11),]
+dat22=dat22[2:nrow(dat22),]
+dat33=dat33[2:nrow(dat33),]
+```
+**After the clean-up ...**
+A sneak peak into the data : 
+```{r clean2}
+head(dat33)
+```
+
+
+##### How much the tables have been compressed after the clean-up? 
+
+```{r compression factor}
+#compression factor
+cf1=length(dat11$Var1)/length(dat1$Var1) ; cf2=length(dat22$Var1)/length(dat2$Var1); cf3=length(dat33$Var1)/length(dat3$Var1)
+cof1=100*(1-cf1)
+cof2=100*(1-cf2)
+cof3=100*(1-cf3)
+```
+
+1. The Twitter table has been compressed by **`r round(cof1,1)`%**
+2. The News table has been compressed by **`r round(cof2,1)`%**
+3. The Blogs table has been compressed by **`r round(cof3,1)`%**
+
+
+##### How many words make up the 50% of each dataset based on their frequency? 90% ? 10%?
+
+```{r quant}
+q1=quantile(dat11$Freq, c(.1, .50, .90, .99)) 
+q2=quantile(dat22$Freq, c(.1, .50, .90, .99))  
+q3=quantile(dat33$Freq, c(.1, .50, .90, .99))
+
+tw1=subset(dat11, Freq>q1[3]) ; ct1=nrow(tw1)
+tw2=subset(dat22, Freq>q2[3]) ; ct2=nrow(tw2)
+tw3=subset(dat33, Freq>q3[3]) ; ct3=nrow(tw3)
+
+spread1=100*ct1/length(dat11$Freq)
+spread2=100*ct1/length(dat22$Freq)
+spread3=100*ct1/length(dat33$Freq)
+```
+
+In my datasets the 90th percentile, appears for frequencies : `r q1[3]` , `r q2[3]` or  `r q3[3]`  depending on the table.
+
+Only 1% of my words have a frequency higher than 
+`r q1[4]` , `r q2[4]` or `r q3[4]` (ranging for each data table).
+
+The 10th and the 50th percentile appear in all tables for frequency = `r q2[1]` , which means that my data has a really long tail of words that have appeared only once and are therefore highly unprobable.
+
+**Some thoughts before modeling the data**
+
+My model could take into account the context of each person typing and for that each source table (twitter, news, blogs) could be leveraged to produce different "context" variables.
+
+In a first take though, I am looking to come-up with a context-less model for simplicity, although performance might be compromised by design.
+Therefore, I will merge the 3 tables. 
+However, given the different table sizes I am looking to avoid skewing the frequencies towards the table size bias. To do so  I need to transform **net frequencies** into **probabilities** of words to appear by dividing with the total number of word occurencies.
+
+
+```{r norm, eval=TRUE}
+#normalizing frequencies
+pl1=dat11[1:length(dat11$Var1),]
+pl2=dat22[1:length(dat22$Var1),] 
+pl3=dat33[1:length(dat33$Var1),]
+
+pl1$Prob=pl1$Freq/sum(pl1$Freq)*100 
+pl2$Prob=pl2$Freq/sum(pl2$Freq)*100
+pl3$Prob=pl3$Freq/sum(pl3$Freq)*100
+
+pl1$Source="Twitter"
+pl2$Source="News"
+pl3$Source="Blogs"
+
+#combining the tables together 
+words=rbind(pl1, pl2, pl3)
+words=arrange(words, desc(Prob)) 
+
+words_all= words%>% group_by(Var1) %>% summarise(Prob = mean(Prob)) 
+words_all=arrange(words_all, desc(Prob)) 
+
+#selecting a smaller subset to facilitate plotting
+top1=pl1[1:500,1:3] ; top2= pl2[1:500,1:3]; top3=pl3[1:500,1:3] ; 
+top= words_all[1:500,]
+top_mix=words[1:500,]
+
+```
+
+```{r quant2}
+qw=quantile(words_all$Prob, c(.1, .50, .90 ,.99)) 
+ww99=subset(words_all, Prob>qw[3])
+ww50_99=subset(ww99, Prob>qw[2])
+ww10_50=subset(ww50_99, Prob>qw[1])
+ww0_10=subset(ww50_99, Prob<=qw[1])
+
+```
+
+
+#### Twitter : most frequent words
+
+```{r twitfig, eval=TRUE}
+p <- ggplot(top1, aes(x=Var1, y=Prob , label=Var1, colour=factor(Prob)) )
+p + geom_point() + theme(legend.position="none",axis.text.x=element_blank(), panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("words") + ylab("Word Probablity in %") + ggtitle("Most frequent words, Twitter") + geom_text(aes(label=ifelse(Prob>0.25,as.character(Var1),'')),hjust=0.5, vjust=-0.35, angle=35, size=4)
+
+```
+
+#### News : most frequent words
+
+```{r newsfig, eval=TRUE}
+p <- ggplot(top2, aes(x=Var1, y=Prob , label=Var1, colour=factor(Prob)) )
+p + geom_point() + theme(legend.position="none",axis.text.x=element_blank(), panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("words") + ylab("Word Probablity in %") + ggtitle("Most frequent words, News") + geom_text(aes(label=ifelse(Prob>0.25,as.character(Var1),'')),hjust=0.5, vjust=-0.35, angle=35, size=4)
+
+```
+
+#### Blogs : most frequent words
+
+```{r blogfig, eval=TRUE}
+p <- ggplot(top3, aes(x=Var1, y=Prob , label=Var1, colour=factor(Prob)) )
+p + geom_point() + theme(legend.position="none",axis.text.x=element_blank(), panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("words") + ylab("Word Probablity in %") + ggtitle("Most frequent words, Blogs") + geom_text(aes(label=ifelse(Prob>0.25,as.character(Var1),'')),hjust=0.5, vjust=-0.35, angle=35, size=4)
+
+```
+
+#### Combined Media (US, en) : most frequent words
+
+```{r comb_fig00, eval=TRUE}
+p <- ggplot(top, aes(x=Var1, y=Prob , label=Var1, colour=factor(Prob)) )
+p + geom_point() + theme(legend.position="none",axis.text.x=element_blank(), panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("words") + ylab("Word Probablity in %") + ggtitle("Most frequent words,Combined Media") + geom_text(aes(label=ifelse(Prob>0.25,as.character(Var1),'')),hjust=0.5, vjust=-0.35, angle=35, size=4)
+
+```
+
+#### Combined Media (US, en) : most frequent words / comparing sources
+
+```{r comb_fig0, eval=TRUE}
+p <- ggplot(top_mix, aes(x=Var1, y=Prob , label=Var1, colour=factor(Source)) )
+
+p + geom_point() + theme(axis.text.x=element_blank(), panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("words") + ylab("Word Probablity in %") + ggtitle("Most frequent words,Combined Media") + geom_text(aes(label=ifelse(Prob>0.25,as.character(Var1),'')),hjust=0.5, vjust=-0.35, angle=35, size=4)
+
+```
+
+
+
+#### Combined Media (US, en) :frequent words' probability for rank 50-180 
+
+```{r comb_fig2, eval=TRUE}
+p <- ggplot(top[50:180,], aes(x=Var1, y=Prob , label=Var1, colour=factor(Prob)) )
+p + geom_point() + theme(legend.position="none",axis.text.x=element_blank(), panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("words") + ylab("Word Probablity in %") + ggtitle("Combined Media: Frequent words' probability for rank 50-180 ") + geom_text(aes(label=Var1),hjust=0.5, vjust=-0.35, angle=35, size=4)
+
+```
+
+
+#### Combined Media (US, en) : frequent words / comparing sources for rank 200-500
+
+```{r comb_fig1, eval=TRUE}
+p <- ggplot(top_mix[200:500,], aes(x=Var1, y=Prob , label=Var1, colour=factor(Source)) )
+
+p + geom_point() + theme(axis.text.x=element_blank(), panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("words") + ylab("Word Probablity in %") + ggtitle("Frequent words, comparing acrossMedia") + geom_text(aes(label=Var1),hjust=0.5, vjust=-0.35, angle=35, size=4)
+
+```
+
+It is easy to spot by the above visualisation which words are rather specific to a medium ie the word **"happy"** on twitter and which words are rather close in probabilities across media ie the word **"home"**.
+
+### Combined Media (US, en) : Histogram
+
+```{r comb_fig3, eval=TRUE}
+p <- ggplot(top, aes(x=Prob , colour=factor(Prob)) )
+p + geom_histogram(binwidth = 5/100) + theme(legend.position="none", panel.grid.minor.x=element_blank(), panel.grid.major.x=element_blank(), panel.grid.minor.y=element_blank(),panel.grid.major.y=element_blank()) + xlab("Word Probablity in %") + ylab("population in top 500") + ggtitle("Combined Media: Frequent words' probability histogram") 
+
+## rmarkdown::render('NLP_exploratory_report.Rmd')
+```
+
+
+### Next Steps
+
+Next steps before starting to model the data is start analyzing word combinations, ie ngrams. 
+This will help further boost performance of a potential model as allegedly, the probability of a word combo (of 2,3  or more words) could be used as a better predictor than the probability of a single word.
+
+From this first phase a key learning is that the top 1% of most frequent words is "staples" words (articles, connectors), not providing context.
+An idea to explore is categorizing ngrams in contextual and context-less so as to develop a model that is aware of its potential to predict (contextual) or not predict (context-less).
+For example 
+1. when previous word is context-less ie **"the"** then the **capability to predict is potentially low** (equals the probability of a specific noun / that of all nouns)
+2. when the previous words is contextual ie **"mayor"** then the capability to predict is high and equals the probability of any member of the % to all the members of the 1% (largest group amongst all, with an exponential difference!!)
+
+### Code
+The code for this file can be found on my github :
+https://github.com/pi-georgia/Capstone-_-Swiftkey.git
+
